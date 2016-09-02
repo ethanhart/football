@@ -130,7 +130,7 @@ def parse_ofp():
     Currently requires manual sign in and saving html to ofp.html"""
 
     games = []
-    with open('./ofp.html') as ofp_htm:
+    with open('./ofp2.html') as ofp_htm:
         soup=BeautifulSoup(ofp_htm.read())
     #games = tree.xpath('//table[@title="std results"]/text()')
     table = soup.find("table", attrs={"class":"std results"})
@@ -138,6 +138,16 @@ def parse_ofp():
     for g in games_raw:
         teams = {}
         for ref in g.find_all("a"):
+            if "onclick" in ref.attrs:
+                if "You have already risked the maximum amount of shares on" in ref.attrs["onclick"]:
+                    m = re.search('maximum amount of shares on (.*)\.', ref.attrs["onclick"])
+                    team_name = normalize_team(m.group(1))
+                    team_abbrv = ref.text.split()[0]
+                    team_spread = ref.text.split()[-1]
+                    params["team_name"] = team_name
+                    params["team_abbrv"] = team_abbrv.lower()
+                    params["team_spread"] = float(team_spread)
+                    teams[team_name] = params
             if "title" in ref.attrs:
                 params = parse_href(re.sub('.*\?', '', ref.attrs["href"]))
                 #print urlparse('http://www.officefootballpool.com/' + ref.attrs["href"].replace('picks.cfm', ''))
@@ -244,7 +254,7 @@ def is_same_team(v1, v2):
 def eval_ofp_cfp(game):
     average_line = (game.line + game.cfp_line) / 2
     comp_diff = abs(average_line - game.cfp_comp_line)
-    if comp_diff > 6:
+    if comp_diff > 0:
         print vars(game)
         print average_line
         print comp_diff
