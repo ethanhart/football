@@ -60,7 +60,7 @@ class Game():
 
     def add_cfp(self, cfp):
         """Add lines from cfp"""
-        {'underdog': 'tulane', 'away': 'tulane', 'favorite': 'wake forest', 'computer': -15.26, 'home': 'wake forest', 'line': -17.0}
+        #{'underdog': 'tulane', 'away': 'tulane', 'favorite': 'wake forest', 'computer': -15.26, 'home': 'wake forest', 'line': -17.0}
         if cfp['computer'] > 0:
             self.cfp_upset = True
         else:
@@ -140,6 +140,7 @@ def parse_ofp():
         for ref in g.find_all("a"):
             if "onclick" in ref.attrs:
                 if "You have already risked the maximum amount of shares on" in ref.attrs["onclick"]:
+                    params = {}
                     m = re.search('maximum amount of shares on (.*)\.', ref.attrs["onclick"])
                     team_name = normalize_team(m.group(1))
                     team_abbrv = ref.text.split()[0]
@@ -147,8 +148,9 @@ def parse_ofp():
                     params["team_name"] = team_name
                     params["team_abbrv"] = team_abbrv.lower()
                     params["team_spread"] = float(team_spread)
+                    params["line"] = float(team_spread)
                     teams[team_name] = params
-            if "title" in ref.attrs:
+            elif "title" in ref.attrs:
                 params = parse_href(re.sub('.*\?', '', ref.attrs["href"]))
                 #print urlparse('http://www.officefootballpool.com/' + ref.attrs["href"].replace('picks.cfm', ''))
                 m = re.search('Pick (.*) to cover the spread', ref.attrs["title"])
