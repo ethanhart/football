@@ -61,7 +61,7 @@ class Game():
     def add_cfp(self, cfp):
         """Add lines from cfp"""
         {'underdog': 'tulane', 'away': 'tulane', 'favorite': 'wake forest', 'computer': -15.26, 'home': 'wake forest', 'line': -17.0}
-        if cfp['line'] > 0:
+        if cfp['computer'] > 0:
             self.cfp_upset = True
         else:
             self.cfp_upset = False
@@ -77,6 +77,7 @@ class Game():
 #class Ofp():
     #"""Office Football Pool page information"""
 
+#OFP
 def parse_href(href):
     """Get parameters of href for ofp"""
     params = {}
@@ -88,6 +89,7 @@ def parse_href(href):
     return params
 
 
+#GLOBAL
 def normalize_team(name):
     """Normalize team names"""
     name = name.lower()
@@ -111,6 +113,7 @@ def normalize_team(name):
     return name
 
 
+#OFP
 def parse_div(div_text):
     """Get home and away teams for ofp"""
 
@@ -119,6 +122,8 @@ def parse_div(div_text):
     home = normalize_team(' '.join(split[-1].split()[:-1]))
     return home, away
 
+
+#OFP
 def parse_ofp():
     """Read in the weeks games, return a 'game' object for each game.
 
@@ -152,6 +157,7 @@ def parse_ofp():
     return games
 
 
+#GLOBAL
 def is_number(s):
     try:
         float(s)
@@ -169,10 +175,12 @@ def is_number(s):
     return False
 
 
+#GLOBAL
 def get_text(s):
     return s.text.encode('utf-8')
 
 
+#CFP
 def parse_cfp():
     """Parse College Football Poll"""
 
@@ -185,7 +193,6 @@ def parse_cfp():
         tds = tr.find_all("td")
         if len(tds) == 6:
             if is_number(get_text(tds[2])) or get_text(tds[2]) == 'NL':
-                #print get_text
                 favorite = get_text(tds[1])
                 line = get_text(tds[2])
                 if line != 'NL':
@@ -207,15 +214,12 @@ def parse_cfp():
                             "computer": computer
                           }
                 matchups.append(matchup)
-                #print favorite, underdog, line, computer, "home", home, "away", away
             else:
                 pass
-            #for t in tds:
-                #text = t.text.encode('utf-8')
-                #print text, is_number(text)
     return matchups
 
 
+#GLOBAL
 def parse_site(url):
     """Get the webpage, return the html tree"""
     page = requests.get(url)
@@ -227,6 +231,7 @@ def parse_site(url):
     return soup
 
 
+#GLOBAL
 def is_same_team(v1, v2):
     if v1 == v2:
         return True
@@ -234,6 +239,21 @@ def is_same_team(v1, v2):
         return True
     elif v2 in v1:
         return True
+
+
+def eval_ofp_cfp(game):
+    average_line = (game.line + game.cfp_line) / 2
+    comp_diff = abs(average_line - game.cfp_comp_line)
+    if comp_diff > 6:
+        print vars(game)
+        print average_line
+        print comp_diff
+        if game.cfp_comp_line < average_line:
+            print 'Pick favorite:', game.favorite
+        else:
+            print 'Pick to cover:', game.underdog
+        print '='*50
+
 
 
 def main():
@@ -244,7 +264,7 @@ def main():
         for cfp in cfp_matchups:
             if is_same_team(cfp["home"], g.home) and is_same_team(cfp["away"], g.away):
                 g.add_cfp(cfp)
-                print vars(g)
+                eval_ofp_cfp(g)
 
 
 if __name__ == "__main__":
