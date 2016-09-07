@@ -6,7 +6,7 @@
 # suggestions for picks based on a variety of criteria.
 
 # Current supported sites (only for current weeks):
-# [ ] collegefootballpoll.com (computer picks)
+# [x] collegefootballpoll.com (computer picks)
 # [ ] oddsshark.com (computer and public picks)
 # [ ] sportsline.com (public picks)
 
@@ -38,12 +38,14 @@ import re
 #ofp_url = 'http://www.officefootballpool.com/picks.cfm?p=1&sportid=5'
 ofp_url = "http://www.officefootballpool.com/picks.cfm?sportid=5&p=1&thispoolid=117127"
 cfp_url = "http://www.collegefootballpoll.com/weekly_picks.html"
+os_url = "http://www.oddsshark.com/ncaaf/computer-picks"
 
 class Game():
     def __init__(self, home, away, ofp_home_line, ofp_away_line):
         """Start with what we know: home, away, and
         the spread from officefootballpool. This spread
         will be the starting point for any pick"""
+
         self.home = home
         self.away = away
         if ofp_home_line < ofp_away_line:
@@ -60,7 +62,7 @@ class Game():
 
     def add_cfp(self, cfp):
         """Add lines from cfp"""
-        #{'underdog': 'tulane', 'away': 'tulane', 'favorite': 'wake forest', 'computer': -15.26, 'home': 'wake forest', 'line': -17.0}
+
         if cfp['computer'] > 0:
             self.cfp_upset = True
         else:
@@ -74,8 +76,6 @@ class Game():
         #return '{0} @ {1}'.format(self.away, self.home) + '\n' + '{0} to {1}'.format(self.ofp_away_line, self.ofp_home_line)
         #return '{0} @ {1}'.format(self.away, self.home) + '\n' + '{0} to {1}'.format(self.ofp_away_line, self.ofp_home_line)
 
-#class Ofp():
-    #"""Office Football Pool page information"""
 
 #OFP
 def parse_href(href):
@@ -209,7 +209,7 @@ def parse_cfp():
                 line = get_text(tds[2])
                 if line != 'NL':
                     line = float(line)
-                computer = float(tds[3].text)
+                computer = float(tds[3].text.replace('*', ''))
                 underdog = get_text(tds[4])
                 if favorite.isupper():
                     home = favorite
@@ -243,6 +243,56 @@ def parse_site(url):
     return soup
 
 
+def parse_os(url):
+    """Parse the Odds Shark webpage"""
+
+    soup = parse_site(url)
+    tables = soup.find_all("table", attrs={"class":"base-table"})
+    matchups = []
+    for i in tables:
+        tds = i.find_all("td")
+        if len(tds) == 12:
+            teams = i.find("caption").text.split("Matchup")
+            home = teams[0].strip().lower()
+            away = teams[1].strip().lower()
+            scores = tds[1].text.split(' - ')
+            home_score = float(scores[0])
+            away_score = float(scores[1])
+            if home_score > away_score:
+                favorite = home
+                underdog = away
+            else:
+                favorite = away
+                underdog = home
+            total = tds[2]
+            comp_ats = tds[4]
+            comp_total = tds[5]
+            public_ats = tds[7]
+            public_total = tds[8]
+            consensus_ats = tds[10]
+            consensus_total = tds[11]
+
+            m = re.search('\((.*)\)', comp_ats.text)
+            line = float(m.group(1))
+            if line > 0:
+                line = line * -1
+
+            # Could potentially add some logic here to pick based on public
+            # and computer ATS picks, but for now, just use the spread.
+
+            matchup = {
+                        "home": home,
+                        "away": away,
+                        "favorite": favorite,
+                        "underdog": underdog,
+                        "computer": line
+                      }
+
+            matchups.append(matchup)
+
+    return matchups
+
+
 #GLOBAL
 def is_same_team(v1, v2):
     if v1 == v2:
@@ -267,7 +317,6 @@ def eval_ofp_cfp(game):
         print '='*50
 
 
-
 def main():
     games = parse_ofp()
     cfp_matchups = parse_cfp()
@@ -277,6 +326,8 @@ def main():
             if is_same_team(cfp["home"], g.home) and is_same_team(cfp["away"], g.away):
                 g.add_cfp(cfp)
                 eval_ofp_cfp(g)
+
+    os_matchups = parse_os(os_url):
 
 
 if __name__ == "__main__":
