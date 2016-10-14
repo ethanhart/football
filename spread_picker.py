@@ -356,37 +356,37 @@ def eval_ofp_cfp(game):
     # Take the upset! But only for home teams
     if game.cfp_upset and game.underdog == game.home and comp_diff > 5:
         print "UPSET ALERT"
-        if comp_diff > 5:
-            print 'Wager Half'
-        elif comp_diff > 8:
+        if comp_diff > 8:
             print 'Wage Full'
+        elif comp_diff > 5:
+            print 'Wager Half'
         print_game(game)
 
     # Pick a favored home team where the model predicts a higher margin than the spread
     elif game.favorite == game.home and comp_diff > 3 and game.cfp_comp_line < average_line:
         print "Take the home team"
-        if comp_diff > 3:
-            print 'Wager Half'
-        elif comp_diff > 5:
+        if comp_diff > 6:
             print 'Wage Full'
+        elif comp_diff > 4:
+            print 'Wager Half'
         print_game(game)
 
     # Pick the home team to cover (not neccessarily an upset)
     elif game.underdog == game.home and comp_diff > 6 and game.cfp_comp_line > average_line:
         print "Take the home team to cover"
-        if comp_diff > 6:
-            print 'Wager Half'
-        elif comp_diff > 8:
+        if comp_diff > 8:
             print 'Wage Full'
+        elif comp_diff > 6:
+            print 'Wager Half'
         print_game(game)
 
     # Pick the away team
     elif game.favorite == game.away and comp_diff > 7  and game.cfp_comp_line < average_line:
         print "Take the away team"
-        if comp_diff > 7:
-            print 'Wager Half'
-        elif comp_diff > 10:
+        if comp_diff > 10:
             print 'Wage Full'
+        elif comp_diff > 7:
+            print 'Wager Half'
         print_game(game)
 
     # Pick a team who has a computer bonus of more than twelve points
