@@ -71,6 +71,15 @@ class Game():
         self.cfp_comp_line = cfp['computer']
         #print cfp
 
+    def add_os(self, os):
+        """Add lines from os"""
+
+        if os['computer'] > 0:
+            self.os_upset = True
+        else:
+            self.os_upset = False
+        self.os_comp_line = os['computer']
+        #print cfp
 
     #def __str__(self):
         #return '{0} @ {1}'.format(self.away, self.home) + '\n' + '{0} to {1}'.format(self.ofp_away_line, self.ofp_home_line)
@@ -98,7 +107,12 @@ def normalize_team(name):
     terms = {
             "st.": "state",
             "ill": "illinois",
-            "mich": "michigan"
+            "mich": "michigan",
+            "fiu": "florida international",
+            "ucf": "central florida",
+            "no": "north",
+            "usc": "southern california",
+            "utep": "texas el paso"
             }
 
     if '#' in name:
@@ -163,9 +177,14 @@ def parse_ofp():
                 teams[team_name] = params
         for div in g.find_all("div"):
             if '@' in div.text:
-                home, away = parse_div(div.text)
-                g = Game(home.lower(), away.lower(), teams[home]["team_spread"], teams[away]["team_spread"])
-                games.append(g)
+                try:
+                    home, away = parse_div(div.text)
+                    g = Game(home.lower(), away.lower(), teams[home]["team_spread"], teams[away]["team_spread"])
+                    games.append(g)
+                except KeyError:
+                    pass
+                    #print div.text
+                    #print "Likely OTB"
     return games
 
 
@@ -253,11 +272,11 @@ def parse_os(url):
         tds = i.find_all("td")
         if len(tds) == 12:
             teams = i.find("caption").text.split("Matchup")
-            home = teams[0].strip().lower()
-            away = teams[1].strip().lower()
+            home = teams[1].strip().lower()
+            away = teams[0].strip().lower()
             scores = tds[1].text.split(' - ')
-            home_score = float(scores[0])
-            away_score = float(scores[1])
+            home_score = float(scores[1])
+            away_score = float(scores[0])
             if home_score > away_score:
                 favorite = home
                 underdog = away
@@ -281,10 +300,10 @@ def parse_os(url):
             # and computer ATS picks, but for now, just use the spread.
 
             matchup = {
-                        "home": home,
-                        "away": away,
-                        "favorite": favorite,
-                        "underdog": underdog,
+                        "home": normalize_team(home),
+                        "away": normalize_team(away),
+                        "favorite": normalize_team(favorite),
+                        "underdog": normalize_team(underdog),
                         "computer": line
                       }
 
@@ -297,24 +316,92 @@ def parse_os(url):
 def is_same_team(v1, v2):
     if v1 == v2:
         return True
-    elif v1 in v2:
+    elif v1 in v2 and "state" not in v1 and "state" not in v2:
         return True
-    elif v2 in v1:
+    elif v1 in v2 and "state" in v1 and "state" in v2:
         return True
+    elif v2 in v1 and "state" not in v1 and "state" not in v2:
+        return True
+    elif v2 in v1 and "state" in v1 and "state" in v2:
+        return True
+
+
+def print_game(game):
+    average_line = (game.line + game.cfp_line) / 2
+    comp_diff = abs(average_line - game.cfp_comp_line)
+    #print vars(game)
+    if game.home == game.favorite:
+        home = game.home.upper()
+        away = game.away
+    else:
+        away = game.away.upper()
+        home = game.home
+    print "Home: ", home
+    print "Away: ", away
+    print "Average line: ", average_line
+    print "Computer line: ", game.cfp_comp_line
+    print "Computer bonus: ", comp_diff
+    if game.cfp_comp_line < average_line:
+        print 'Pick favorite:', game.favorite
+    else:
+        print 'Pick to cover:', game.underdog
+    print '='*50
 
 
 def eval_ofp_cfp(game):
+    # NEED TO AS OS LINE, WEIGHTS, ETC.
     average_line = (game.line + game.cfp_line) / 2
     comp_diff = abs(average_line - game.cfp_comp_line)
-    if comp_diff > 0:
-        print vars(game)
-        print average_line
-        print comp_diff
-        if game.cfp_comp_line < average_line:
-            print 'Pick favorite:', game.favorite
-        else:
-            print 'Pick to cover:', game.underdog
-        print '='*50
+
+    # Take the upset! But only for home teams
+    if game.cfp_upset and game.underdog == game.home and comp_diff > 5:
+        print "UPSET ALERT"
+        if comp_diff > 5:
+            print 'Wager Half'
+        elif comp_diff > 8:
+            print 'Wage Full'
+        print_game(game)
+
+    # Pick a favored home team where the model predicts a higher margin than the spread
+    elif game.favorite == game.home and comp_diff > 3 and game.cfp_comp_line < average_line:
+        print "Take the home team"
+        if comp_diff > 3:
+            print 'Wager Half'
+        elif comp_diff > 5:
+            print 'Wage Full'
+        print_game(game)
+
+    # Pick the home team to cover (not neccessarily an upset)
+    elif game.underdog == game.home and comp_diff > 6 and game.cfp_comp_line > average_line:
+        print "Take the home team to cover"
+        if comp_diff > 6:
+            print 'Wager Half'
+        elif comp_diff > 8:
+            print 'Wage Full'
+        print_game(game)
+
+    # Pick the away team
+    elif game.favorite == game.away and comp_diff > 7  and game.cfp_comp_line < average_line:
+        print "Take the away team"
+        if comp_diff > 7:
+            print 'Wager Half'
+        elif comp_diff > 10:
+            print 'Wage Full'
+        print_game(game)
+
+    # Pick a team who has a computer bonus of more than twelve points
+    elif comp_diff > 12:
+        print "Major line difference"
+        print "Wage Full"
+        print_game(game)
+
+    #else:
+        #print "Don't bet!"
+        #print_game(game)
+
+    #elif comp_diff > 0:
+        #print "REST"
+        #print_game(game)
 
 
 def main():
@@ -327,8 +414,11 @@ def main():
                 g.add_cfp(cfp)
                 eval_ofp_cfp(g)
 
-    os_matchups = parse_os(os_url):
-
+    #os_matchups = parse_os(os_url)
+    #for g in games:
+        #for os in os_matchups:
+            #if is_same_team(os["home"], g.home) and is_same_team(os["away"], g.away):
+                #g.add_os(os)
 
 if __name__ == "__main__":
     main()
