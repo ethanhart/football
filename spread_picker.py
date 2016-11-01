@@ -55,8 +55,6 @@ class Game():
         self.lines = [self.line]
         self.comp_lines = []
         self.has_os = False
-        #self.ofp_home_line = ofp_home_line
-        #self.ofp_away_line = ofp_away_line
 
     def avg_comp_line(self):
         return round(sum(self.comp_lines)/float(len(self.comp_lines)))
@@ -71,10 +69,8 @@ class Game():
             self.cfp_upset = True
         else:
             self.cfp_upset = False
-        #self.cfp_line = cfp['line']
         if is_number(cfp['line']):
             self.lines.append(cfp['line'])
-        #self.cfp_comp_line = cfp['computer']
         self.comp_lines.append(cfp['computer'])
 
     def add_os(self, os):
@@ -84,25 +80,39 @@ class Game():
             self.os_upset = True
         else:
             self.os_upset = False
-        #self.os_comp_line = os['computer']
         self.lines.append(os['line'])
         self.comp_lines.append(os['computer'])
-        #self.os_line = os['line']
         self.has_os = True
 
-    #def __str__(self):
-        #return '{0} @ {1}'.format(self.away, self.home) + '\n' + '{0} to {1}'.format(self.ofp_away_line, self.ofp_home_line)
-        #return '{0} @ {1}'.format(self.away, self.home) + '\n' + '{0} to {1}'.format(self.ofp_away_line, self.ofp_home_line)
+    def print_game(self):
+        avg_line = self.avg_line()
+        avg_comp_line = self.avg_comp_line()
+        comp_diff = abs(avg_line - avg_comp_line)
+        if self.home == self.favorite:
+            home = self.home.upper()
+            away = self.away
+        else:
+            away = self.away.upper()
+            home = self.home
+
+        print "Home: ", home
+        print "Away: ", away
+        print "Average line: ", avg_line
+        print "Computer line: ", avg_comp_line
+        print "Computer bonus: ", comp_diff
+        if avg_comp_line < avg_line:
+            print 'Pick favorite:', self.favorite
+        else:
+            print 'Pick to cover:', self.underdog
+        print '='*50
 
 
 #GLOBAL
 def parse_site(url):
     """Get the webpage, return the html tree"""
+
     page = requests.get(url)
     content =  page.content
-    #tree = html.fromstring(page.content)
-    #return tree
-
     soup = BeautifulSoup(content)
     return soup
 
@@ -110,6 +120,7 @@ def parse_site(url):
 #GLOBAL
 def normalize_team(name):
     """Normalize team names"""
+
     name = name.lower()
     name = re.sub('\(.*\)', '', name)
     name = name.strip()
@@ -130,7 +141,7 @@ def normalize_team(name):
             "smu": "southern methodist"
             }
 
-    if '#' in name:
+    if '#' in name:  # remove ranking info
         name = ' '.join(name.split()[1:])
     buff = []
     for s in name.split():
@@ -167,6 +178,9 @@ def get_text(s):
 
 #GLOBAL
 def is_same_team(v1, v2):
+    """A overly verbose way to check if names
+    are referring to the same team"""
+
     if v1 == v2:
         return True
     elif v1 in v2 and "state" not in v1 and "state" not in v2:
@@ -182,6 +196,7 @@ def is_same_team(v1, v2):
 #OFP
 def parse_href(href):
     """Get parameters of href for ofp"""
+
     params = {}
     for i in href.split('&'):
         split = i.split('=')
@@ -204,7 +219,6 @@ def parse_div(div_text):
 #OFP
 def parse_ofp():
     """Read in the weeks games, return a 'game' object for each game.
-
     Currently requires manual sign in and saving html to ofp.html"""
 
     games = []
@@ -269,10 +283,9 @@ def parse_cfp():
     for tr in trs:
         tds = tr.find_all("td")
         if len(tds) == 6 and not is_cfp_header(tds):
-            #if is_number(get_text(tds[2])) or get_text(tds[2]) == 'NL':
             favorite = get_text(tds[1])
             line = get_text(tds[2])
-            if is_number(line): # != 'NL'
+            if is_number(line):  # != 'NL' or sometimes empty
                 line = float(line)
             computer = float(tds[3].text.replace('*', ''))
             underdog = get_text(tds[4])
@@ -291,8 +304,7 @@ def parse_cfp():
                         "computer": computer
                         }
             matchups.append(matchup)
-            #else:
-                #pass
+
     return matchups
 
 
@@ -336,9 +348,6 @@ def parse_os(url):
             if line > 0:
                 line = line * -1
 
-            # Could potentially add some logic here to pick based on public
-            # and computer ATS picks, but for now, just use the spread.
-
             matchup = {
                         "home": normalize_team(home),
                         "away": normalize_team(away),
@@ -353,41 +362,19 @@ def parse_os(url):
     return matchups
 
 
-def print_game(game):
-    avg_line = game.avg_line()
-    avg_comp_line = game.avg_comp_line()
-    comp_diff = abs(avg_line - avg_comp_line)
-    if game.home == game.favorite:
-        home = game.home.upper()
-        away = game.away
-    else:
-        away = game.away.upper()
-        home = game.home
-
-    print "Home: ", home
-    print "Away: ", away
-    print "Average line: ", avg_line
-    print "Computer line: ", avg_comp_line
-    print "Computer bonus: ", comp_diff
-    if avg_comp_line < avg_line:
-        print 'Pick favorite:', game.favorite
-    else:
-        print 'Pick to cover:', game.underdog
-    print '='*50
-
 class Wager():
     def __init__(self, comp_diff, max_bet):
         self.comp_diff = comp_diff
         self.max_bet = max_bet
 
     def get_bet(self, *brakes):
+        """Determine how much to bet based on
+        specified differences in lines"""
+
         bet = 0
         for e,b in enumerate(brakes):
-            #print 'Difference needed: ', b
             numerator = e + 1
             scale =  numerator/float(len(brakes))
-            #print 'Scale: ', scale
-            #print 'Bet: ', scale * max_bet
             if self.comp_diff > b:
                 bet = scale * self.max_bet
         print 'Wager: ', bet
@@ -403,31 +390,32 @@ def eval_game(game, max_bet):
     if game.cfp_upset and game.underdog == game.home and comp_diff > 5:
         print "UPSET ALERT"
         wager.get_bet(5, 8)
-        print_game(game)
+        game.print_game()
+        #print_game(game)
 
     # Pick a favored home team where the model predicts a higher margin than the spread
     elif game.favorite == game.home and comp_diff > 3 and avg_comp_line < avg_line:
         print "Take the home team"
         wager.get_bet(3, 6)
-        print_game(game)
+        game.print_game()
 
     # Pick the home team to cover (not neccessarily an upset)
     elif game.underdog == game.home and comp_diff > 6 and avg_comp_line > avg_line:
         print "Take the home team to cover"
         wager.get_bet(6, 8)
-        print_game(game)
+        game.print_game()
 
     # Pick the away team
     elif game.favorite == game.away and comp_diff > 7 and avg_comp_line < avg_line:
         print "Take the away team"
         wager.get_bet(7, 10)
-        print_game(game)
+        game.print_game()
 
     # Pick a team who has a computer bonus of more than twelve points
     elif comp_diff > 12:
         print "Major line difference"
         print "Wager: ", max_bet
-        print_game(game)
+        game.print_game()
 
 
 def main():
@@ -435,11 +423,13 @@ def main():
     cfp_matchups = parse_cfp()
     os_matchups = parse_os(os_url)
     max_bet = 315
+    include_os = True
 
     for g in games:
-        for os in os_matchups:
-            if is_same_team(os["home"], g.home) and is_same_team(os["away"], g.away):
-                g.add_os(os)
+        if include_os:
+            for os in os_matchups:
+                if is_same_team(os["home"], g.home) and is_same_team(os["away"], g.away):
+                    g.add_os(os)
         for cfp in cfp_matchups:
             if is_same_team(cfp["home"], g.home) and is_same_team(cfp["away"], g.away):
                 g.add_cfp(cfp)
