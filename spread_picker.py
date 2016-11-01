@@ -360,6 +360,9 @@ def eval_game(game):
     average_comp_line = sum(comp_lines) / float(len(comp_lines))
     comp_diff = abs(average_line - average_comp_line)
 
+    # CREATE WAGE SELECTION FUNCTION
+    # TAKE MINIMUM FOR HALF WAGE, MULTIPLE BY 1.5 OR SOMETHING FOR FULL WAGE
+
     # Take the upset! But only for home teams
     if game.cfp_upset and game.underdog == game.home and comp_diff > 5:
         print "UPSET ALERT"
@@ -414,15 +417,17 @@ def eval_game(game):
 def main():
     games = parse_ofp()
     cfp_matchups = parse_cfp()
-    os_matchups = parse_os(os_url)
+    #os_matchups = parse_os(os_url)
 
     for g in games:
         for cfp in cfp_matchups:
             if is_same_team(cfp["home"], g.home) and is_same_team(cfp["away"], g.away):
                 g.add_cfp(cfp)
-        for os in os_matchups:
-            if is_same_team(os["home"], g.home) and is_same_team(os["away"], g.away):
-                g.add_os(os)
+                eval_game(g)
+
+        #for os in os_matchups:
+            #if is_same_team(os["home"], g.home) and is_same_team(os["away"], g.away):
+                #g.add_os(os)
         #eval_game(g)
 
 
