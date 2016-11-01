@@ -52,6 +52,7 @@ class Game():
             self.underdog = home
             self.line = ofp_away_line
 
+        self.has_os = False
         #self.ofp_home_line = ofp_home_line
         #self.ofp_away_line = ofp_away_line
 
@@ -74,6 +75,8 @@ class Game():
         else:
             self.os_upset = False
         self.os_comp_line = os['computer']
+        self.os_line = os['line']
+        self.has_os = True
         #print cfp
 
     #def __str__(self):
@@ -272,6 +275,7 @@ def parse_os(url):
             scores = tds[1].text.split(' - ')
             home_score = float(scores[1])
             away_score = float(scores[0])
+            comp_line = abs(home_score - away_score) * -1
             if home_score > away_score:
                 favorite = home
                 underdog = away
@@ -299,7 +303,8 @@ def parse_os(url):
                         "away": normalize_team(away),
                         "favorite": normalize_team(favorite),
                         "underdog": normalize_team(underdog),
-                        "computer": line
+                        "line": line,
+                        "comp_line": comp_line
                       }
 
             matchups.append(matchup)
@@ -343,10 +348,17 @@ def print_game(game):
     print '='*50
 
 
-def eval_ofp_cfp(game):
+#def eval_ofp_cfp(game):
+def eval_game(game):
     # NEED TO AS OS LINE, WEIGHTS, ETC.
-    average_line = (game.line + game.cfp_line) / 2
-    comp_diff = abs(average_line - game.cfp_comp_line)
+    lines = [game.line + game.cfp_line]
+    comp_lines = [game.cfp_comp_line]
+    if game.has_os:  # could add command line arg to enable/disable os
+        lines.append(game.os_line)
+        comp_lines.append(game.os_comp_line)
+    average_line = sum(lines) / float(len(lines))
+    average_comp_line = sum(comp_lines) / float(len(comp_lines))
+    comp_diff = abs(average_line - average_comp_line)
 
     # Take the upset! But only for home teams
     if game.cfp_upset and game.underdog == game.home and comp_diff > 5:
@@ -402,18 +414,17 @@ def eval_ofp_cfp(game):
 def main():
     games = parse_ofp()
     cfp_matchups = parse_cfp()
+    os_matchups = parse_os(os_url)
 
     for g in games:
         for cfp in cfp_matchups:
             if is_same_team(cfp["home"], g.home) and is_same_team(cfp["away"], g.away):
                 g.add_cfp(cfp)
-                eval_ofp_cfp(g)
+        for os in os_matchups:
+            if is_same_team(os["home"], g.home) and is_same_team(os["away"], g.away):
+                g.add_os(os)
+        #eval_game(g)
 
-    #os_matchups = parse_os(os_url)
-    #for g in games:
-        #for os in os_matchups:
-            #if is_same_team(os["home"], g.home) and is_same_team(os["away"], g.away):
-                #g.add_os(os)
 
 if __name__ == "__main__":
     main()
