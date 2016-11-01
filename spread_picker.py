@@ -12,7 +12,7 @@
 
 # Methodology (heuristics):
 # - First, stick with the home team. More points, crowd advantage, better calls, etc.
-# - Find spreads that are greater on alternate sites than officefootballpool
+# - Find disparities in spreads compared to officefootballpool (find opportunities).
 #   - When a computer has a much larger spread than the opening line OR when the
 #       computer heavily favors the underdog, give an advantage to that team
 # - Trust the computer picks more than the people. Finding these picks might
@@ -23,11 +23,6 @@
 # cfp- College Football Poll
 # os- Odds Shark
 # sl- Sports Line
-
-# Code outline
-#   - Start only with games available on officefootballpool
-#   - Might have to do some normalization of names from different sites
-#   - Each game will be a class.
 
 import requests
 from lxml import etree, html
@@ -367,7 +362,7 @@ def eval_ofp_cfp(game):
         print "Take the home team"
         if comp_diff > 6:
             print 'Wage Full'
-        elif comp_diff > 4:
+        elif comp_diff > 3:
             print 'Wager Half'
         print_game(game)
 
