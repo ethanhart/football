@@ -107,10 +107,16 @@ def normalize_team(name):
             "ill": "illinois",
             "mich": "michigan",
             "fiu": "florida international",
+            "fau": "florida atlantic",
+            "atl.": "atlantic",
             "ucf": "central florida",
             "no": "north",
             "usc": "southern california",
-            "utep": "texas el paso"
+            "utep": "texas el paso",
+            "louisiana-monroe": "ul monroe",
+            "louisiana-lafayette": "ul lafayette",
+            "n.c.": "north carolina",
+            "smu": "southern methodist"
             }
 
     if '#' in name:
@@ -193,20 +199,28 @@ def is_number(s):
         return True
     except ValueError:
         pass
- 
+
     try:
         import unicodedata
         unicodedata.numeric(s)
         return True
     except (TypeError, ValueError):
         pass
- 
+
     return False
 
 
 #GLOBAL
 def get_text(s):
     return s.text.encode('utf-8')
+
+
+def is_cfp_header(tds):
+    tds_text = ' '.join([x.text.strip() for x in tds])
+    if tds_text == 'Score Favorite Line (Open) Computer Underdog Score':
+        return True
+    else:
+        return False
 
 
 #CFP
@@ -220,31 +234,31 @@ def parse_cfp():
     trs = div.find_all("tr")
     for tr in trs:
         tds = tr.find_all("td")
-        if len(tds) == 6:
-            if is_number(get_text(tds[2])) or get_text(tds[2]) == 'NL':
-                favorite = get_text(tds[1])
-                line = get_text(tds[2])
-                if line != 'NL':
-                    line = float(line)
-                computer = float(tds[3].text.replace('*', ''))
-                underdog = get_text(tds[4])
-                if favorite.isupper():
-                    home = favorite
-                    away = underdog
-                else:
-                    home = underdog
-                    away = favorite
-                matchup = {
-                            "home": normalize_team(home),
-                            "away": normalize_team(away),
-                            "favorite": normalize_team(favorite),
-                            "underdog": normalize_team(underdog),
-                            "line": line,
-                            "computer": computer
-                          }
-                matchups.append(matchup)
+        if len(tds) == 6 and not is_cfp_header(tds):
+            #if is_number(get_text(tds[2])) or get_text(tds[2]) == 'NL':
+            favorite = get_text(tds[1])
+            line = get_text(tds[2])
+            if is_number(line): # != 'NL'
+                line = float(line)
+            computer = float(tds[3].text.replace('*', ''))
+            underdog = get_text(tds[4])
+            if favorite.isupper():
+                home = favorite
+                away = underdog
             else:
-                pass
+                home = underdog
+                away = favorite
+            matchup = {
+                        "home": normalize_team(home),
+                        "away": normalize_team(away),
+                        "favorite": normalize_team(favorite),
+                        "underdog": normalize_team(underdog),
+                        "line": line,
+                        "computer": computer
+                        }
+            matchups.append(matchup)
+            #else:
+                #pass
     return matchups
 
 
@@ -290,8 +304,12 @@ def parse_os(url):
             consensus_ats = tds[10]
             consensus_total = tds[11]
 
-            m = re.search('\((.*)\)', comp_ats.text)
-            line = float(m.group(1))
+            if comp_ats.text.strip() == 'Push' and public_ats.text.strip() != 'Push':
+                m = re.search('\((.*)\)', public_ats.text)
+                line = float(m.group(1))
+            else:
+                m = re.search('\((.*)\)', comp_ats.text)
+                line = float(m.group(1))
             if line > 0:
                 line = line * -1
 
@@ -304,7 +322,7 @@ def parse_os(url):
                         "favorite": normalize_team(favorite),
                         "underdog": normalize_team(underdog),
                         "line": line,
-                        "comp_line": comp_line
+                        "computer": round(comp_line, 2)
                       }
 
             matchups.append(matchup)
@@ -351,15 +369,26 @@ def print_game(game):
 #def eval_ofp_cfp(game):
 def eval_game(game):
     # NEED TO AS OS LINE, WEIGHTS, ETC.
-    lines = [game.line + game.cfp_line]
+    lines = [game.line]
+    #lines = [game.line, game.cfp_line]
+    if is_number(game.cfp_line):
+        lines.append(game.cfp_line)
     comp_lines = [game.cfp_comp_line]
     if game.has_os:  # could add command line arg to enable/disable os
         lines.append(game.os_line)
         comp_lines.append(game.os_comp_line)
-    average_line = sum(lines) / float(len(lines))
-    average_comp_line = sum(comp_lines) / float(len(comp_lines))
+    average_line = round(sum(lines) / float(len(lines)), 2)
+    average_comp_line = round(sum(comp_lines) / float(len(comp_lines)), 2)
     comp_diff = abs(average_line - average_comp_line)
-
+    #print game.away, '@', game.home
+    #print vars(game)
+    #print lines
+    #print "avg line: ", average_line
+    #print comp_lines
+    #print "avg comp: ", average_comp_line
+    #print "diff: ", comp_diff
+    #print '-'*50
+    #return
     # CREATE WAGE SELECTION FUNCTION
     # TAKE MINIMUM FOR HALF WAGE, MULTIPLE BY 1.5 OR SOMETHING FOR FULL WAGE
 
@@ -373,7 +402,8 @@ def eval_game(game):
         print_game(game)
 
     # Pick a favored home team where the model predicts a higher margin than the spread
-    elif game.favorite == game.home and comp_diff > 3 and game.cfp_comp_line < average_line:
+    #elif game.favorite == game.home and comp_diff > 3 and game.cfp_comp_line < average_line:
+    elif game.favorite == game.home and comp_diff > 3 and average_comp_line < average_line:
         print "Take the home team"
         if comp_diff > 6:
             print 'Wage Full'
@@ -382,7 +412,8 @@ def eval_game(game):
         print_game(game)
 
     # Pick the home team to cover (not neccessarily an upset)
-    elif game.underdog == game.home and comp_diff > 6 and game.cfp_comp_line > average_line:
+    #elif game.underdog == game.home and comp_diff > 6 and game.cfp_comp_line > average_line:
+    elif game.underdog == game.home and comp_diff > 6 and average_comp_line > average_line:
         print "Take the home team to cover"
         if comp_diff > 8:
             print 'Wage Full'
@@ -391,7 +422,8 @@ def eval_game(game):
         print_game(game)
 
     # Pick the away team
-    elif game.favorite == game.away and comp_diff > 7  and game.cfp_comp_line < average_line:
+    #elif game.favorite == game.away and comp_diff > 7  and game.cfp_comp_line < average_line:
+    elif game.favorite == game.away and comp_diff > 7  and average_comp_line < average_line:
         print "Take the away team"
         if comp_diff > 10:
             print 'Wage Full'
@@ -417,18 +449,16 @@ def eval_game(game):
 def main():
     games = parse_ofp()
     cfp_matchups = parse_cfp()
-    #os_matchups = parse_os(os_url)
+    os_matchups = parse_os(os_url)
 
     for g in games:
+        for os in os_matchups:
+            if is_same_team(os["home"], g.home) and is_same_team(os["away"], g.away):
+                g.add_os(os)
         for cfp in cfp_matchups:
             if is_same_team(cfp["home"], g.home) and is_same_team(cfp["away"], g.away):
                 g.add_cfp(cfp)
                 eval_game(g)
-
-        #for os in os_matchups:
-            #if is_same_team(os["home"], g.home) and is_same_team(os["away"], g.away):
-                #g.add_os(os)
-        #eval_game(g)
 
 
 if __name__ == "__main__":
