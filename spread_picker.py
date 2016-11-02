@@ -272,11 +272,11 @@ def is_cfp_header(tds):
 
 
 #CFP
-def parse_cfp():
+def parse_cfp(url):
     """Parse College Football Poll"""
 
     matchups = []
-    soup = parse_site(cfp_url)
+    soup = parse_site(url)
     tables = soup.find("table", attrs={"class":"contentTable"})
     div = tables.find("div", attrs={"id":"IntelliTXT"})
     trs = div.find_all("tr")
@@ -420,7 +420,7 @@ def eval_game(game, max_bet):
 
 def main():
     games = parse_ofp()
-    cfp_matchups = parse_cfp()
+    cfp_matchups = parse_cfp(cfp_url)
     os_matchups = parse_os(os_url)
     max_bet = 315
     include_os = True
